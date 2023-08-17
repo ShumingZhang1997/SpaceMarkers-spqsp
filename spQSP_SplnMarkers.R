@@ -23,33 +23,41 @@ library(tidyr)
 library(matrixStats)
 library(caret)
 
-working_dir <- "PATH_TO_WORKING_DIR"
-result_dir <- "PATH_TO_RESULT_DIR"
-output_dir <- "PATH_TO_OUTPUT_DIR"
-setwd(working_dir)
-
 source("./R/preprocessing.R")
 source("./R/getSpatialParameters.R")
 source("./R/getInteractingGenes.R")
 source('./R/find_genes_of_interest_nonparametric_fast.R')
 
+working_dir <- 'PATH_TO_WORKING_DIR'
+# directory where spQSP results stores
+input_dir <- 'PATH_TO_INPUT_DIR'
+# directory where user want to store spacemarker outputs
+output_dir <- 'PATH_TO_OUTPUT_DIR'
+
+input_folder <- paste0(input_dir, patient_sample, sep="/")
+output_folder <- paste0(output_dir, patient_sample, sep="/")
+setwd(working_dir)
 # SpInMarkersMode: defaut mode is "residual". You can also set "DE" mode for Differential Expression mode.
 SpInMarkersMode = "DE"  
 # SpinMarkersRefPattern is the pattern whose "interaction" with every other pattern we want to study. If refPattern is not explicitly assigned, the code assumes Pattern_1 to be refPattern.
 SpinMarkersRefPattern = "Pattern_1" 
 
-cellPath <- sprintf('%s/snapShots/cell_280.csv', output_folder)
+patient_sample <- commandArgs(trailingOnly = TRUE)[1]
+
+
+y_slice <- 5
+cellPath <- sprintf('%s/snapShots/cell_280.csv', input_folder)
 cellData_raw <- read.csv(cellPath)
 
 #filter T_EFF and TEXH
 cellData <- cellData_raw[!(cellData_raw$State %in% c(3,5)),]
 
 #preprocessing and organize cytokine data
-cytokinePath <- sprintf('%s/snapShots/grid_core_280.csv', output_folder)
+cytokinePath <- sprintf('%s/snapShots/grid_core_280.csv', input_folder)
 cytokineData <- read.csv(cytokinePath)
 
 #preprocessing and organize cytokine data
-vasPath <- sprintf('%s/snapShots/vas_280.csv', output_folder)
+vasPath <- sprintf('%s/snapShots/vas_280.csv', input_folder)
 vasData <- read.csv(vasPath)
 
 ##Organize Type Data
@@ -62,32 +70,23 @@ dmyState <- dummyVars("~ State_", cellData)
 cellData <- cbind(cellData,  data.frame(predict(dmyState, newdata=cellData)))
 
 ##Addup all cells in each coordinate
-y_slice <- 5
 cellData_2D <- cellData[cellData$y == y_slice,]
-typeData_2D <- subset (cellData_2D, select = c(x,z,Pattern_1, Pattern_2, Pattern_3, Pattern_4, Pattern_5))
+#typeData_2D <- subset (cellData_2D, select = c(x,z,Pattern_1, Pattern_2, Pattern_3, Pattern_4, Pattern_5))
+typeData_2D <- subset (cellData_2D, select = c(x,z,Pattern_1, Pattern_2))
 names(typeData_2D)[names(typeData_2D) == 'z'] <- 'y'
 
-typeData_2D_agg <- aggregate(cbind(typeData_2D$Pattern_1, typeData_2D$Pattern_2, typeData_2D$Pattern_3, cellData_2D$Pattern_4, typeData_2D$Pattern_5 ),
+typeData_2D_agg <- aggregate(cbind(typeData_2D$Pattern_1, typeData_2D$Pattern_2),
                              list(typeData_2D$x, typeData_2D$y), sum)
 
-names(typeData_2D_agg) <- c('x', 'y', 'Pattern_1', 'Pattern_2', 'Pattern_3', 'Pattern_4', 'Pattern_5')
+#typeData_2D_agg <- aggregate(cbind(typeData_2D$Pattern_1, typeData_2D$Pattern_2, typeData_2D$Pattern_3, cellData_2D$Pattern_4, typeData_2D$Pattern_5 ),
+#list(typeData_2D$x, typeData_2D$y), sum)
+
+names(typeData_2D_agg) <- c('x', 'y', 'Pattern_1', 'Pattern_2')
+#names(typeData_2D_agg) <- c('x', 'y', 'Pattern_1', 'Pattern_2', 'Pattern_3', 'Pattern_4', 'Pattern_5')
 spPatterns_spQSP <- cbind(barcodes = paste(typeData_2D_agg$x, "_", typeData_2D_agg$y), typeData_2D_agg)
 rownames(spPatterns_spQSP) <- spPatterns_spQSP$barcodes
 
-#stateData_2D_agg <- aggregate(cbind(cellData_2D$State_3, cellData_2D$State_4, cellData_2D$State_5,
-#                                    cellData_2D$State_6, cellData_2D$State_7, cellData_2D$State_8,  cellData_2D$State_10,
-#                                    cellData_2D$State_13, cellData_2D$State_14),
-#                               list(cellData_2D$x, cellData_2D$z), sum)
 
-#names(stateData_2D_agg) <- c('x', 'y', 'State_3', 'State_4', 'State_5',
-#                            'State_6', 'State_7', 'State_8', 'State_10',
-#                            'State_13', 'State_14')
-#rownames(stateData_2D_agg) <- paste(stateData_2D_agg$x, "_", stateData_2D_agg$y)
-spPatterns_spQSP <- cbind(barcodes = paste(typeData_2D_agg$x, "_", typeData_2D_agg$y), typeData_2D_agg)
-rownames(spPatterns_spQSP) <- spPatterns_spQSP$barcodes
-
-#replace pattern_2 with state_4 (only cytotoxic t cell)
-#spPatterns_spQSP$Pattern_2 <- stateData_2D_agg$State_4
 expressionData = merge(cytokineData, vasData, by.x=c('x', 'y', 'z'), by.y=c('x', 'y', 'z'))
 
 expressionData_2D <- expressionData[expressionData$y == 5,]
@@ -99,11 +98,10 @@ colnames(filtered_expressionData_2D)[13] <- 'Vasculature'
 cgMat_spQSP <- t(subset (filtered_expressionData_2D, select = -c(x,y)))
 fullMat_spQSP <- as(cgMat_spQSP, "sparseMatrix") 
 
-spPatterns_spQSP <- subset(spPatterns_spQSP, select = -c(Pattern_3, Pattern_4, Pattern_5) )
+#spPatterns_spQSP <- subset(spPatterns_spQSP, select = -c(Pattern_3, Pattern_4, Pattern_5) )
 
 optParams_spQSP <- getSpatialParameters_spQSP(spPatterns_spQSP)
 optParams <- optParams_spQSP
-
 
 SpInMarkers_spQSP <- getInteractingGenes(data = fullMat_spQSP, reconstruction = NULL, 
                                          spatialPatterns = spPatterns_spQSP, 
@@ -115,7 +113,7 @@ rownames(hotspot_matrix) <- rownames(SpInMarkers_spQSP[["hotspotRegions"]])
 # 
 hotspot_matrix$Pattern_1[hotspot_matrix$Pattern_1 == 0] <- NA
 hotspot_matrix$Pattern_1[hotspot_matrix$Pattern_1 == 1] <- "Pattern_1"
-# #hotspot_matrix$Pattern_1 <- SpInMarkers_spQSP[["hotspotRegions"]][,'Pattern_1']
+#hotspot_matrix$Pattern_1 <- SpInMarkers_spQSP[["hotspotRegions"]][,'Pattern_1']
 #hotspot_matrix$Pattern_4[hotspot_matrix$Pattern_4 == 0] <- NA
 #hotspot_matrix$Pattern_4[hotspot_matrix$Pattern_4 == 1] <- "Pattern_4"
 #hotspot_matrix$Pattern_5[hotspot_matrix$Pattern_5 == 0] <- NA
@@ -130,7 +128,9 @@ SpInMarkers_spQSP <- getInteractingGenes(data = fullMat_spQSP, reconstruction = 
                                          spatialPatterns = spPatterns_spQSP, refPattern = SpinMarkersRefPattern, 
                                          mode = SpInMarkersMode, hotspotRegions = hotspot_matrix)
 
-setwd(output_dir)
+
+dir.create(file.path(output_folder), recursive = TRUE)
+setwd(output_folder)
 for (i in seq(1,length(SpInMarkers_spQSP$interacting_genes)))
 {
   filename <- paste0(gsub(x = 'spQSP_SPIN',pattern = '.rds',replacement = '_SpInMarkers_'),names(SpInMarkers_spQSP$interacting_genes[[i]])[1],".txt")
@@ -154,7 +154,6 @@ library(stringr)
 library(viridis)
 library(ggplot2)
 
-setwd(sprintf(output_dir)
 SpInMarkers_spQSP <- readRDS('spQSP_SPIN.rds')
 
 geneList <- c("IL_2","Vasculature","VEGFA","TGFB" )
@@ -198,7 +197,7 @@ for (ii in 1:length(geneList)){
     xlab("") + 
     ylab(ylabel)+
     scale_x_discrete(labels=c('Cancer', 'Interacting', 'CD8')) +
-  stat_compare_means(comparisons = my_comparisons, size = 4)
+    stat_compare_means(comparisons = my_comparisons, size = 4)
 }
 n <- length(plist)
 nCol <- floor(sqrt(n))
