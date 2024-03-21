@@ -6,7 +6,7 @@ getSpatialParameters_spQSP <- function(spatialPatterns){
   good_gene_threshold <- 3;  
   sigmaRes <- max(floor(min(diff(range(spatialPatterns$x)),diff(range(spatialPatterns$y)))/250),1)
   sigmaVec <- seq(2,40*sigmaRes,sigmaRes)
-  threshVec <- seq(1,1.5,0.1)
+  threshVec <- seq(1,2,0.1)
   
   #goodGenes <- rownames(fullMat)[apply(fullMat,1,function(x) sum(x>0)>=good_gene_threshold)]
   patternList <- colnames(spatialPatterns)[startsWith(colnames(spatialPatterns),"Pattern_")]
@@ -22,6 +22,12 @@ library(dplyr)
 library(tidyr)
 library(matrixStats)
 library(caret)
+library(gridExtra)
+library(patchwork)
+library(hdf5r)
+library(ggpubr)
+library(stringr)
+library(viridis)
 
 source("./R/preprocessing.R")
 source("./R/getSpatialParameters.R")
@@ -29,17 +35,18 @@ source("./R/getInteractingGenes.R")
 source('./R/find_genes_of_interest_nonparametric_fast.R')
 
 working_dir <- 'PATH_TO_WORKING_DIR'
-# directory where spQSP results stores
-input_dir <- 'PATH_TO_INPUT_DIR'
-# directory where user want to store spacemarker outputs
-output_dir <- 'PATH_TO_OUTPUT_DIR'
 
-input_folder <- paste0(input_dir, patient_sample, sep="/")
-output_folder <- paste0(output_dir, patient_sample, sep="/")
+
+#spQSP Simulation results
+input_folder <- './sample_simulated_result'
+#Desired output folder
+output_folder <- './out_sample_simulated_result'
 setwd(working_dir)
 # SpInMarkersMode: defaut mode is "residual". You can also set "DE" mode for Differential Expression mode.
 SpInMarkersMode = "DE"  
-# SpinMarkersRefPattern is the pattern whose "interaction" with every other pattern we want to study. If refPattern is not explicitly assigned, the code assumes Pattern_1 to be refPattern.
+# SpinMarkersRefPattern is the pattern whose "interaction" with every other pattern we want to study. 
+# Pattern_1: Cancer Cell
+# Pattern_2 CD8+ T cell
 SpinMarkersRefPattern = "Pattern_1" 
 
 patient_sample <- commandArgs(trailingOnly = TRUE)[1]
@@ -144,15 +151,6 @@ write.table(subset(spPatterns_spQSP, select = c(x, y)),file = 'spatial_coord.txt
 
 saveRDS(SpInMarkers_spQSP, file = 'spQSP_SPIN.rds')
 ################################################################################################################################################################
-library(gridExtra)
-library(patchwork)
-library(dplyr)
-library(hdf5r)
-library(EnhancedVolcano)
-library(ggpubr)
-library(stringr)
-library(viridis)
-library(ggplot2)
 
 SpInMarkers_spQSP <- readRDS('spQSP_SPIN.rds')
 
