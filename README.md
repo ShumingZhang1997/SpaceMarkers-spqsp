@@ -22,6 +22,6 @@ remotes::install_github("FertigLab/SpaceMarkers", dependencies = TRUE, build_vig
 ## Running SpaceMarkers on spQSP outputs
 The sample result for running the code is stored in <code>/sample_result </code> folder </br>
 ```
-R_SCRIPT = "spQSP_SplnMarkers.R' $'sample_result'
-Rscript $R_SCRIPT
+$ R_SCRIPT = "spQSP_SplnMarkers.R' 'sample_result'
+$ Rscript $R_SCRIPT
 ```
